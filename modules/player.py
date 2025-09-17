@@ -19,8 +19,11 @@ from services.mpris import MprisPlayer, MprisPlayerManager
 from widgets.circle_image import CircleImage
 
 vertical_mode = False
-if data.PANEL_THEME == "Panel" and (data.BAR_POSITION in ["Left", "Right"] or data.PANEL_POSITION in ["Start", "End"]):
+if data.PANEL_THEME == "Panel" and (
+    data.BAR_POSITION in ["Left", "Right"] or data.PANEL_POSITION in ["Start", "End"]
+):
     vertical_mode = True
+
 
 def get_player_icon_markup_by_name(player_name):
     if player_name:
@@ -33,21 +36,35 @@ def get_player_icon_markup_by_name(player_name):
             return icons.chromium
     return icons.disc
 
+
 def add_hover_cursor(widget):
     widget.add_events(Gdk.EventMask.ENTER_NOTIFY_MASK | Gdk.EventMask.LEAVE_NOTIFY_MASK)
-    widget.connect("enter-notify-event", lambda w, event: w.get_window().set_cursor(
-        Gdk.Cursor.new_from_name(Gdk.Display.get_default(), "pointer")))
-    widget.connect("leave-notify-event", lambda w, event: w.get_window().set_cursor(None))
+    widget.connect(
+        "enter-notify-event",
+        lambda w, event: w.get_window().set_cursor(
+            Gdk.Cursor.new_from_name(Gdk.Display.get_default(), "pointer")
+        ),
+    )
+    widget.connect(
+        "leave-notify-event", lambda w, event: w.get_window().set_cursor(None)
+    )
+
 
 class PlayerBox(Box):
     def __init__(self, mpris_player=None):
-        super().__init__(orientation="v", h_align="fill", spacing=0, h_expand=False, v_expand=not vertical_mode)
+        super().__init__(
+            orientation="v",
+            h_align="fill",
+            spacing=0,
+            h_expand=False,
+            v_expand=not vertical_mode,
+        )
         self.mpris_player = mpris_player
         self._progress_timer_id = None
 
         self.cover = CircleImage(
             name="player-cover",
-            image_file=data.CURRENT_WALLPAPER_PATH,
+            image_file=os.path.expanduser("~/.current.wall"),
             size=162 if not vertical_mode else 96,
             h_align="center",
             v_align="center",
@@ -58,9 +75,28 @@ class PlayerBox(Box):
             h_align="center",
             v_align="center",
         )
-        self.title = Label(name="player-title", h_expand=True, h_align="fill", ellipsization="end", max_chars_width=1, style_classes=["vertical"] if vertical_mode else [])
-        self.album = Label(name="player-album", h_expand=True, h_align="fill", ellipsization="end", max_chars_width=1)
-        self.artist = Label(name="player-artist", h_expand=True, h_align="fill", ellipsization="end", max_chars_width=1)
+        self.title = Label(
+            name="player-title",
+            h_expand=True,
+            h_align="fill",
+            ellipsization="end",
+            max_chars_width=1,
+            style_classes=["vertical"] if vertical_mode else [],
+        )
+        self.album = Label(
+            name="player-album",
+            h_expand=True,
+            h_align="fill",
+            ellipsization="end",
+            max_chars_width=1,
+        )
+        self.artist = Label(
+            name="player-artist",
+            h_expand=True,
+            h_align="fill",
+            ellipsization="end",
+            max_chars_width=1,
+        )
         self.progressbar = CircularProgressBar(
             name="player-progress",
             size=198 if not vertical_mode else 132,
@@ -74,7 +110,9 @@ class PlayerBox(Box):
             child=self.cover_placerholder,
             overlays=[self.progressbar, self.cover],
         )
-        self.overlay_container = CenterBox(name="player-overlay", center_children=[self.overlay])
+        self.overlay_container = CenterBox(
+            name="player-overlay", center_children=[self.overlay]
+        )
         self.title.set_label("Nothing Playing")
         self.album.set_label("Enjoy the silence")
         self.artist.set_label("¯\\_(ツ)_/¯")
@@ -97,7 +135,9 @@ class PlayerBox(Box):
         )
         self.play_pause = Button(
             name="player-btn",
-            child=Label(name="player-btn-label", markup=icons.play, style_classes=["play-pause"]),
+            child=Label(
+                name="player-btn-label", markup=icons.play, style_classes=["play-pause"]
+            ),
             style_classes=["play-pause"],
             h_expand=False,
             v_expand=False,
@@ -140,36 +180,40 @@ class PlayerBox(Box):
                         self.play_pause,
                         self.forward,
                         self.next,
-                    ]
+                    ],
                 )
-            ]
+            ],
         )
 
-        self.p_children=[
-            self.overlay_container,
-            self.title,
-            self.album,
-            self.artist,
-            self.btn_box,
-            self.time,
-        ] if not vertical_mode else [
-            self.overlay_container,
-            Box(
-                orientation="v",
-                spacing=4,
-                h_expand=True,
-                h_align="fill",
-                v_expand=False,
-                v_align="center",
-                children=[
-                    self.title,
-                    self.album,
-                    self.btn_box,
-                    self.artist,
-                    self.time,
-                ]
-            )
-        ]
+        self.p_children = (
+            [
+                self.overlay_container,
+                self.title,
+                self.album,
+                self.artist,
+                self.btn_box,
+                self.time,
+            ]
+            if not vertical_mode
+            else [
+                self.overlay_container,
+                Box(
+                    orientation="v",
+                    spacing=4,
+                    h_expand=True,
+                    h_align="fill",
+                    v_expand=False,
+                    v_align="center",
+                    children=[
+                        self.title,
+                        self.album,
+                        self.btn_box,
+                        self.artist,
+                        self.time,
+                    ],
+                ),
+            ]
+        )
 
         self.player_box = Box(
             name="player-box",
@@ -215,11 +259,13 @@ class PlayerBox(Box):
                 local_arturl = urllib.parse.unquote(parsed.path)
                 self._set_cover_image(local_arturl)
             elif parsed.scheme in ("http", "https"):
-                GLib.Thread.new("download-artwork", self._download_and_set_artwork, mp.arturl)
+                GLib.Thread.new(
+                    "download-artwork", self._download_and_set_artwork, mp.arturl
+                )
             else:
                 self._set_cover_image(mp.arturl)
         else:
-            fallback = data.CURRENT_WALLPAPER_PATH
+            fallback = os.path.expanduser("~/.current.wall")
             self._set_cover_image(fallback)
             file_obj = Gio.File.new_for_path(fallback)
             monitor = file_obj.monitor_file(Gio.FileMonitorFlags.NONE, None)
@@ -230,7 +276,11 @@ class PlayerBox(Box):
         self.progressbar.set_visible(True)
         self.time.set_visible(True)
 
-        player_name = mp.player_name.lower() if hasattr(mp, "player_name") and mp.player_name else ""
+        player_name = (
+            mp.player_name.lower()
+            if hasattr(mp, "player_name") and mp.player_name
+            else ""
+        )
         can_seek = hasattr(mp, "can_seek") and mp.can_seek
 
         if player_name == "firefox" or not can_seek:
@@ -247,31 +297,34 @@ class PlayerBox(Box):
             # Enable seeking controls
             self.backward.remove_style_class("disabled")
             self.forward.remove_style_class("disabled")
-            
+
             # Use adaptive timer based on playback status instead of fixed 1-second polling
             self._start_adaptive_progress_timer()
 
         if hasattr(mp, "can_go_previous") and mp.can_go_previous:
-             self.prev.remove_style_class("disabled")
+            self.prev.remove_style_class("disabled")
         else:
-             self.prev.add_style_class("disabled")
+            self.prev.add_style_class("disabled")
 
         if hasattr(mp, "can_go_next") and mp.can_go_next:
-             self.next.remove_style_class("disabled")
+            self.next.remove_style_class("disabled")
         else:
-             self.next.add_style_class("disabled")
+            self.next.add_style_class("disabled")
 
     def _start_adaptive_progress_timer(self):
         """Start progress timer with adaptive interval based on playback status"""
         if self._progress_timer_id:
             GLib.source_remove(self._progress_timer_id)
-        
+
         # Use longer intervals when paused to reduce CPU usage
-        if hasattr(self.mpris_player, 'playback_status') and self.mpris_player.playback_status == "playing":
+        if (
+            hasattr(self.mpris_player, "playback_status")
+            and self.mpris_player.playback_status == "playing"
+        ):
             interval = 1000  # 1 second when playing
         else:
             interval = 5000  # 5 seconds when paused/stopped
-            
+
         self._progress_timer_id = GLib.timeout_add(interval, self._update_progress)
         self._update_progress()  # Update immediately
 
@@ -279,7 +332,7 @@ class PlayerBox(Box):
         if image_path and os.path.isfile(image_path):
             self.cover.set_image_from_file(image_path)
         else:
-            fallback = data.CURRENT_WALLPAPER_PATH
+            fallback = os.path.expanduser("~/.current.wall")
             self.cover.set_image_from_file(fallback)
             file_obj = Gio.File.new_for_path(fallback)
             monitor = file_obj.monitor_file(Gio.FileMonitorFlags.NONE, None)
@@ -301,7 +354,7 @@ class PlayerBox(Box):
             temp_file.close()
             local_arturl = temp_file.name
         except Exception:
-            local_arturl = data.CURRENT_WALLPAPER_PATH
+            local_arturl = os.path.expanduser("~/.current.wall")
         GLib.idle_add(self._set_cover_image, local_arturl)
         return None
 
@@ -314,7 +367,7 @@ class PlayerBox(Box):
             self.play_pause.remove_style_class("playing")
 
     def on_wallpaper_changed(self, monitor, file, other_file, event):
-        self.cover.set_image_from_file(data.CURRENT_WALLPAPER_PATH)
+        self.cover.set_image_from_file(os.path.expanduser("~/.current.wall"))
 
     def _on_prev_clicked(self, button):
         if self.mpris_player:
@@ -327,13 +380,21 @@ class PlayerBox(Box):
 
     def _on_backward_clicked(self, button):
 
-        if self.mpris_player and self.mpris_player.can_seek and "disabled" not in self.backward.get_style_context().list_classes():
+        if (
+            self.mpris_player
+            and self.mpris_player.can_seek
+            and "disabled" not in self.backward.get_style_context().list_classes()
+        ):
             new_pos = max(0, self.mpris_player.position - 5000000)
             self.mpris_player.position = new_pos
 
     def _on_forward_clicked(self, button):
 
-        if self.mpris_player and self.mpris_player.can_seek and "disabled" not in self.forward.get_style_context().list_classes():
+        if (
+            self.mpris_player
+            and self.mpris_player.can_seek
+            and "disabled" not in self.forward.get_style_context().list_classes()
+        ):
             new_pos = self.mpris_player.position + 5000000
             self.mpris_player.position = new_pos
 
@@ -364,8 +425,10 @@ class PlayerBox(Box):
             self.time.set_text("--:-- / --:--")
 
         else:
-            progress = (current / total)
-            self.time.set_text(f"{self._format_time(current)} / {self._format_time(total)}")
+            progress = current / total
+            self.time.set_text(
+                f"{self._format_time(current)} / {self._format_time(total)}"
+            )
 
         self.progressbar.set_value(progress)
         return True
@@ -401,9 +464,17 @@ class PlayerBox(Box):
         self._update_pending = False
         return False
 
+
 class Player(Box):
     def __init__(self):
-        super().__init__(name="player", orientation="v", h_align="fill", spacing=0, h_expand=False, v_expand=not vertical_mode)
+        super().__init__(
+            name="player",
+            orientation="v",
+            h_align="fill",
+            spacing=0,
+            h_expand=False,
+            v_expand=not vertical_mode,
+        )
         self.player_stack = Stack(
             name="player-stack",
             transition_type="slide-left-right",
@@ -448,10 +519,17 @@ class Player(Box):
 
     def on_player_vanished(self, manager, player_name):
         for child in self.player_stack.get_children():
-            if hasattr(child, "mpris_player") and child.mpris_player and child.mpris_player.player_name == player_name:
+            if (
+                hasattr(child, "mpris_player")
+                and child.mpris_player
+                and child.mpris_player.player_name == player_name
+            ):
                 self.player_stack.remove(child)
                 break
-        if not any(getattr(child, "mpris_player", None) for child in self.player_stack.get_children()):
+        if not any(
+            getattr(child, "mpris_player", None)
+            for child in self.player_stack.get_children()
+        ):
             pb = PlayerBox(mpris_player=None)
             self.player_stack.add_titled(pb, "nothing", "Nothing Playing")
         self.switcher.set_visible(True)
@@ -467,7 +545,9 @@ class Player(Box):
                         default_label = child
                         break
                 if default_label:
-                    label_player_name = getattr(default_label, "player_name", default_label.get_text().lower())
+                    label_player_name = getattr(
+                        default_label, "player_name", default_label.get_text().lower()
+                    )
                     icon_markup = get_player_icon_markup_by_name(label_player_name)
                     btn.remove(default_label)
                     new_label = Label(name="player-label", markup=icon_markup)
@@ -485,7 +565,9 @@ class Player(Box):
                         default_label = child
                         break
                 if default_label:
-                    label_player_name = getattr(default_label, "player_name", default_label.get_text().lower())
+                    label_player_name = getattr(
+                        default_label, "player_name", default_label.get_text().lower()
+                    )
                     if label_player_name == player_name.lower():
                         icon_markup = get_player_icon_markup_by_name(player_name)
                         btn.remove(default_label)
@@ -495,9 +577,12 @@ class Player(Box):
                         new_label.show_all()
         return False
 
+
 class PlayerSmall(CenterBox):
     def __init__(self):
-        super().__init__(name="player-small", orientation="h", h_align="fill", v_align="center")
+        super().__init__(
+            name="player-small", orientation="h", h_align="fill", v_align="center"
+        )
         self._show_artist = False
         self._display_options = ["cavalcade", "title", "artist"]
         self._display_index = 0
@@ -507,7 +592,7 @@ class PlayerSmall(CenterBox):
             name="compact-mpris-icon",
             h_align="center",
             v_align="center",
-            child=Label(name="compact-mpris-icon-label", markup=icons.disc)
+            child=Label(name="compact-mpris-icon-label", markup=icons.disc),
         )
 
         self.mpris_icon.add_events(Gdk.EventMask.BUTTON_PRESS_MASK)
@@ -530,10 +615,12 @@ class PlayerSmall(CenterBox):
             name="compact-mpris-button",
             h_align="center",
             v_align="center",
-            child=Label(name="compact-mpris-button-label", markup=icons.play)
+            child=Label(name="compact-mpris-button-label", markup=icons.play),
         )
         self.mpris_button.add_events(Gdk.EventMask.BUTTON_PRESS_MASK)
-        self.mpris_button.connect("button-press-event", self._on_play_pause_button_press)
+        self.mpris_button.connect(
+            "button-press-event", self._on_play_pause_button_press
+        )
 
         add_hover_cursor(self.mpris_button)
 
@@ -549,7 +636,7 @@ class PlayerSmall(CenterBox):
             children=[
                 self.cavalcade_box,
                 self.mpris_label,
-            ]
+            ],
         )
         self.center_stack.set_visible_child(self.cavalcade_box)
 
@@ -598,17 +685,21 @@ class PlayerSmall(CenterBox):
 
         mp = self.mpris_player
 
-        player_name = mp.player_name.lower() if hasattr(mp, "player_name") and mp.player_name else ""
+        player_name = (
+            mp.player_name.lower()
+            if hasattr(mp, "player_name") and mp.player_name
+            else ""
+        )
         icon_markup = get_player_icon_markup_by_name(player_name)
         self.mpris_icon.get_child().set_markup(icon_markup)
         self.update_play_pause_icon()
 
         if self._current_display == "title":
-            text = (mp.title if mp.title and mp.title.strip() else "Nothing Playing")
+            text = mp.title if mp.title and mp.title.strip() else "Nothing Playing"
             self.mpris_label.set_text(text)
             self.center_stack.set_visible_child(self.mpris_label)
         elif self._current_display == "artist":
-            text = (mp.artist if mp.artist else "Nothing Playing")
+            text = mp.artist if mp.artist else "Nothing Playing"
             self.mpris_label.set_text(text)
             self.center_stack.set_visible_child(self.mpris_label)
         else:
@@ -616,13 +707,16 @@ class PlayerSmall(CenterBox):
 
     def _on_icon_button_press(self, widget, event):
         from gi.repository import Gdk
+
         if event.type == Gdk.EventType.BUTTON_PRESS:
             players = self.mpris_manager.players
             if not players:
                 return True
 
             if event.button == 2:
-                self._display_index = (self._display_index + 1) % len(self._display_options)
+                self._display_index = (self._display_index + 1) % len(
+                    self._display_options
+                )
                 self._current_display = self._display_options[self._display_index]
                 self._apply_mpris_properties()
                 return True
@@ -693,7 +787,11 @@ class PlayerSmall(CenterBox):
 
     def on_player_vanished(self, manager, player_name):
         players = self.mpris_manager.players
-        if players and self.mpris_player and self.mpris_player.player_name == player_name:
+        if (
+            players
+            and self.mpris_player
+            and self.mpris_player.player_name == player_name
+        ):
             if players:
                 self.current_index = self.current_index % len(players)
                 new_player = MprisPlayer(players[self.current_index])
