@@ -25,7 +25,16 @@ from widgets.wayland import WaylandWindow as Window
 
 
 class Notch(Window):
-    def __init__(self, **kwargs):
+    def __init__(self, monitor_id: int = 0, **kwargs):
+        self.monitor_id = monitor_id
+        self.monitor_manager = None
+        
+        # Get monitor manager
+        try:
+            from utils.monitor_manager import get_monitor_manager
+            self.monitor_manager = get_monitor_manager()
+        except ImportError:
+            pass
         is_panel_vertical = False
         if data.PANEL_THEME == "Panel":
             is_panel_vertical = data.VERTICAL
@@ -127,6 +136,7 @@ class Notch(Window):
             exclusivity="none" if data.PANEL_THEME == "Notch" else "normal",
             visible=True,
             all_visible=True,
+            monitor=monitor_id,
         )
 
         self._typed_chars_buffer = ""
@@ -153,7 +163,7 @@ class Notch(Window):
         self.nwconnections.set_visible(False)
 
         self.launcher = AppLauncher(notch=self)
-        self.overview = Overview()
+        self.overview = Overview(monitor_id=monitor_id)
         self.emoji = EmojiPicker(notch=self)
         self.power = PowerMenu(notch=self)
         self.tmux = TmuxManager(notch=self)
@@ -301,20 +311,14 @@ class Notch(Window):
             name="notch-corner-left",
             orientation="v",
             h_align="start",
-            children=[
-                MyCorner("top-right"),
-                Box(),
-            ],
+            children=[MyCorner("top-right")],
         )
 
         self.corner_right = Box(
             name="notch-corner-right",
             orientation="v",
             h_align="end",
-            children=[
-                MyCorner("top-left"),
-                Box(),
-            ],
+            children=[MyCorner("top-left")],
         )
 
         self.notch_box = CenterBox(
@@ -336,77 +340,68 @@ class Notch(Window):
             child_revealed=True,
             child=self.notch_box,
         )
-
-        self.notch_hover_area_event_box = Gtk.EventBox()
-        self.notch_hover_area_event_box.add(self.notch_revealer)
-        if data.PANEL_THEME == "Notch":
-            self.notch_hover_area_event_box.connect(
-                "enter-notify-event", self.on_notch_hover_area_enter
-            )
-            self.notch_hover_area_event_box.connect(
-                "leave-notify-event", self.on_notch_hover_area_leave
-            )
-        self.notch_hover_area_event_box.set_size_request(-1, 1)
+        
+        self.notch_revealer.set_size_request(-1, 1)
 
         self.notch_complete = Box(
             name="notch-complete",
             orientation="v" if is_panel_vertical else "h",
-            children=[
-                self.notch_hover_area_event_box,
-            ],
+            children=[self.notch_revealer],
         )
 
         self._is_notch_open = False
         self._scrolling = False
 
-        self.vert_comp_left = Box(name="vert-comp")
-        self.vert_comp_right = Box(name="vert-comp")
-
-        self.vert_comp = Box()
-
-        match data.BAR_POSITION:
-            case "Left":
-                self.vert_comp = self.vert_comp_right
-            case "Right":
-                self.vert_comp = self.vert_comp_left
-
-        match data.BAR_THEME:
-            case "Pills":
-                self.vert_comp.set_size_request(38, 0)
-            case "Dense":
-                self.vert_comp.set_size_request(50, 0)
-            case "Edge":
-                self.vert_comp.set_size_request(44, 0)
-            case _:
-                self.vert_comp.set_size_request(38, 0)
-
-        if is_panel_vertical:
-            self.vert_comp.set_size_request(1, 1)
-
-        self.vert_comp.set_sensitive(False)
-
-        self.notch_children = []
-
         if data.VERTICAL:
+            vert_comp_size = {
+                "Pills": 38,
+                "Dense": 50,
+                "Edge": 44,
+            }.get(data.BAR_THEME, 38)
+            
+            if is_panel_vertical:
+                vert_comp_size = 1
+                
+            self.vert_comp_left = Box(name="vert-comp")
+            self.vert_comp_left.set_size_request(vert_comp_size, 0)
+            self.vert_comp_left.set_sensitive(False)
+            
+            self.vert_comp_right = Box(name="vert-comp") 
+            self.vert_comp_right.set_size_request(vert_comp_size, 0)
+            self.vert_comp_right.set_sensitive(False)
+            
             self.notch_children = [
                 self.vert_comp_left,
                 self.notch_complete,
                 self.vert_comp_right,
             ]
         else:
-            self.notch_children = [
-                self.notch_complete,
-            ]
+            self.notch_children = [self.notch_complete]
 
         self.notch_wrap = Box(
             name="notch-wrap",
             children=self.notch_children,
         )
 
-        self.add(self.notch_wrap)
-
-        GLib.timeout_add(600, self._reveal_on_load)
-
+        # Create top-level EventBox that wraps the entire notch for hover detection
+        if data.PANEL_THEME == "Notch":
+            self.hover_eventbox = Gtk.EventBox(name="notch-hover-eventbox")
+            self.hover_eventbox.add(self.notch_wrap)
+            self.hover_eventbox.set_visible(True)
+            # Set minimum size to ensure hover detection area is always available
+            self.hover_eventbox.set_size_request(260, 4)  # Width matches compact size, min height for hover
+            self.hover_eventbox.add_events(
+                Gdk.EventMask.ENTER_NOTIFY_MASK | Gdk.EventMask.LEAVE_NOTIFY_MASK
+            )
+            self.hover_eventbox.connect(
+                "enter-notify-event", self.on_notch_hover_area_enter
+            )
+            self.hover_eventbox.connect(
+                "leave-notify-event", self.on_notch_hover_area_leave
+            )
+            self.add(self.hover_eventbox)
+        else:
+            self.add(self.notch_wrap)
         self.show_all()
 
         self.add_keybinding("Escape", lambda *_: self.close_notch())
@@ -478,6 +473,10 @@ class Notch(Window):
         return False
 
     def close_notch(self):
+        # Update monitor manager state
+        if self.monitor_manager:
+            self.monitor_manager.set_notch_state(self.monitor_id, False)
+            
         self.set_keyboard_mode("none")
         self.notch_box.remove_style_class("open")
         self.stack.remove_style_class("open")
@@ -491,6 +490,71 @@ class Notch(Window):
             self.notch_revealer.set_reveal_child(False)
 
     def open_notch(self, widget_name: str):
+        # Debug info for troubleshooting
+        if hasattr(self, '_debug_monitor_focus') and self._debug_monitor_focus:
+            print(f"DEBUG: open_notch called on monitor {self.monitor_id} for widget '{widget_name}'")
+        
+        # Handle monitor focus switching - always check real focused monitor from Hyprland
+        if self.monitor_manager:
+            # Get real focused monitor directly from Hyprland to ensure accuracy
+            real_focused_monitor_id = self._get_real_focused_monitor_id()
+            
+            # Update monitor manager if we got a valid result
+            if real_focused_monitor_id is not None:
+                # Update the monitor manager's focused monitor
+                self.monitor_manager._focused_monitor_id = real_focused_monitor_id
+                if hasattr(self, '_debug_monitor_focus') and self._debug_monitor_focus:
+                    print(f"DEBUG: Real focused monitor from Hyprland: {real_focused_monitor_id}")
+            
+            focused_monitor_id = self.monitor_manager.get_focused_monitor_id()
+            
+            if focused_monitor_id != self.monitor_id:
+                # Close this notch and open on focused monitor
+                if hasattr(self, '_debug_monitor_focus') and self._debug_monitor_focus:
+                    print(f"DEBUG: Redirecting from monitor {self.monitor_id} to focused monitor {focused_monitor_id}")
+                
+                self.close_notch()
+                focused_notch = self.monitor_manager.get_instance(focused_monitor_id, 'notch')
+                if focused_notch and hasattr(focused_notch, 'open_notch'):
+                    # Recursively call open_notch on the correct monitor instance
+                    focused_notch._open_notch_internal(widget_name)
+                return
+            
+            # Close notches on other monitors
+            self.monitor_manager.close_all_notches_except(self.monitor_id)
+            self.monitor_manager.set_notch_state(self.monitor_id, True, widget_name)
+        
+        # Call internal open_notch implementation
+        self._open_notch_internal(widget_name)
+    
+    def _get_real_focused_monitor_id(self):
+        """Get the real focused monitor ID directly from Hyprland."""
+        try:
+            import json
+            import subprocess
+            
+            # Get focused monitor from Hyprland
+            result = subprocess.run(
+                ["hyprctl", "monitors", "-j"],
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=2.0
+            )
+            
+            monitors = json.loads(result.stdout)
+            for i, monitor in enumerate(monitors):
+                if monitor.get('focused', False):
+                    return i
+                    
+        except (subprocess.CalledProcessError, json.JSONDecodeError, 
+                FileNotFoundError, subprocess.TimeoutExpired) as e:
+            print(f"Warning: Could not get focused monitor from Hyprland: {e}")
+        
+        return None
+    
+    def _open_notch_internal(self, widget_name: str):
+        
         self.notch_revealer.set_reveal_child(True)
         self.notch_box.add_style_class("open")
         self.stack.add_style_class("open")

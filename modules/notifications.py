@@ -17,7 +17,7 @@ from loguru import logger
 
 import config.data as data
 import modules.icons as icons
-from widgets.rounded_image import CustomImage
+from widgets.image import CustomImage
 from widgets.wayland import WaylandWindow as Window
 
 PERSISTENT_DIR = f"/tmp/{data.APP_NAME}/notifications"
@@ -529,9 +529,7 @@ class NotificationHistory(Box):
         self.persistent_notifications = []
         self.add(self.history_header)
         self.add(self.scrolled_window)
-        self._load_persistent_history()
-        self._cleanup_orphan_cached_images()
-        self.schedule_midnight_update()
+        GLib.idle_add(self._load_persistent_history().__next__)
 
     def get_ordinal(self, n):
         if 11 <= (n % 100) <= 13:
@@ -659,9 +657,12 @@ class NotificationHistory(Box):
                     self.persistent_notifications = json.load(f)
                 for note in reversed(self.persistent_notifications):
                     self._add_historical_notification(note)
+                    yield True
             except Exception as e:
                 logger.error(f"Error loading persistent history: {e}")
         GLib.idle_add(self.update_no_notifications_label_visibility)
+        self._cleanup_orphan_cached_images()
+        self.schedule_midnight_update()
 
     def _save_persistent_history(self):
         try:
@@ -1322,15 +1323,6 @@ class NotificationContainer(Box):
                 )
                 notif_box.destroy()
 
-            if len(self.notifications) == 1:
-                self._is_destroying = True
-                self.main_revealer.set_reveal_child(False)
-                GLib.timeout_add(
-                    self.main_revealer.get_transition_duration(),
-                    self._destroy_container,
-                )
-                return
-
             new_index = i
             if i == self.current_index:
                 new_index = max(0, i - 1)
@@ -1345,8 +1337,13 @@ class NotificationContainer(Box):
                 new_index = len(self.notifications) - 1
 
             self.current_index = new_index
-
-            if len(self.notifications) > 0:
+            
+            if not self.notifications:
+                self._is_destroying = True
+                self.main_revealer.set_reveal_child(False)
+                self._destroy_container()
+                return
+            else:
                 self.stack.set_visible_child(self.notifications[self.current_index])
 
             self.update_navigation_buttons()

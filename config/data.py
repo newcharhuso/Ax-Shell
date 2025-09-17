@@ -61,6 +61,11 @@ def load_config():
     return config
 
 
+# Import defaults from settings_constants to avoid duplication
+from .settings_constants import DEFAULTS
+
+# Load configuration once and use throughout the module
+config = {}
 if os.path.exists(CONFIG_FILE):
     with open(CONFIG_FILE, "r") as f:
         config = json.load(f)
@@ -83,25 +88,25 @@ if os.path.exists(CONFIG_FILE):
     DOCK_THEME = config.get("dock_theme", "Pills")
     PANEL_THEME = config.get("panel_theme", "Pills")
 
-    PANEL_POSITION = config.get(PANEL_POSITION_KEY, PANEL_POSITION_DEFAULT)
-    NOTIF_POS = config.get(NOTIF_POS_KEY, NOTIF_POS_DEFAULT)
+# Set configuration values using defaults from settings_constants
+WALLPAPERS_DIR = config.get("wallpapers_dir", DEFAULTS["wallpapers_dir"])
+BAR_POSITION = config.get("bar_position", DEFAULTS["bar_position"])
+VERTICAL = BAR_POSITION in ["Left", "Right"]
+CENTERED_BAR = config.get("centered_bar", DEFAULTS["centered_bar"])
+DATETIME_12H_FORMAT = config.get("datetime_12h_format", DEFAULTS["datetime_12h_format"])
+TERMINAL_COMMAND = config.get("terminal_command", DEFAULTS["terminal_command"])
+DOCK_ENABLED = config.get("dock_enabled", DEFAULTS["dock_enabled"])
+DOCK_ALWAYS_OCCLUDED = config.get("dock_always_occluded", DEFAULTS["dock_always_occluded"])
+DOCK_ICON_SIZE = config.get("dock_icon_size", DEFAULTS["dock_icon_size"])
+BAR_WORKSPACE_SHOW_NUMBER = config.get("bar_workspace_show_number", DEFAULTS["bar_workspace_show_number"])
+BAR_WORKSPACE_USE_CHINESE_NUMERALS = config.get("bar_workspace_use_chinese_numerals", DEFAULTS["bar_workspace_use_chinese_numerals"])
+BAR_HIDE_SPECIAL_WORKSPACE = config.get("bar_hide_special_workspace", DEFAULTS["bar_hide_special_workspace"])
+BAR_THEME = config.get("bar_theme", DEFAULTS["bar_theme"])
+DOCK_THEME = config.get("dock_theme", DEFAULTS["dock_theme"])
+PANEL_THEME = config.get("panel_theme", DEFAULTS["panel_theme"])
 
-    BAR_COMPONENTS_VISIBILITY = {
-        "button_apps": config.get("bar_button_apps_visible", True),
-        "systray": config.get("bar_systray_visible", True),
-        "control": config.get("bar_control_visible", True),
-        "network": config.get("bar_network_visible", True),
-        "button_tools": config.get("bar_button_tools_visible", True),
-        "sysprofiles": config.get("bar_sysprofiles_visible", True),
-        "button_overview": config.get("bar_button_overview_visible", True),
-        "ws_container": config.get("bar_ws_container_visible", True),
-        "weather": config.get("bar_weather_visible", True),
-        "battery": config.get("bar_battery_visible", True),
-        "metrics": config.get("bar_metrics_visible", True),
-        "language": config.get("bar_language_visible", True),
-        "date_time": config.get("bar_date_time_visible", True),
-        "button_power": config.get("bar_button_power_visible", True),
-    }
+PANEL_POSITION = config.get(PANEL_POSITION_KEY, DEFAULTS[PANEL_POSITION_KEY])
+NOTIF_POS = config.get(NOTIF_POS_KEY, DEFAULTS[NOTIF_POS_KEY])
 
     BAR_METRICS_DISKS = config.get("bar_metrics_disks", ["/"])
     METRICS_VISIBLE = config.get(
@@ -127,26 +132,7 @@ else:
     DOCK_THEME = "Pills"
     PANEL_THEME = "Notch"
 
-    PANEL_POSITION = PANEL_POSITION_DEFAULT
-    NOTIF_POS = NOTIF_POS_DEFAULT
-
-    BAR_COMPONENTS_VISIBILITY = {
-        "button_apps": True,
-        "systray": True,
-        "control": True,
-        "network": True,
-        "button_tools": True,
-        "button_overview": True,
-        "ws_container": True,
-        "weather": True,
-        "battery": True,
-        "metrics": True,
-        "language": True,
-        "date_time": True,
-        "button_power": True,
-        "sysprofiles": True,
-    }
-
-    BAR_METRICS_DISKS = ["/"]
-    METRICS_VISIBLE = {"cpu": True, "ram": True, "disk": True, "gpu": True}
-    METRICS_SMALL_VISIBLE = {"cpu": True, "ram": True, "disk": True, "gpu": True}
+BAR_METRICS_DISKS = config.get("bar_metrics_disks", DEFAULTS["bar_metrics_disks"])
+METRICS_VISIBLE = config.get("metrics_visible", DEFAULTS["metrics_visible"])
+METRICS_SMALL_VISIBLE = config.get("metrics_small_visible", DEFAULTS["metrics_small_visible"])
+SELECTED_MONITORS = config.get("selected_monitors", DEFAULTS["selected_monitors"])
